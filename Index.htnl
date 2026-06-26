@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dolphin 3D - High Sensitivity Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #020617;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        
+        /* UI INTERFACE */
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            gap: 10px;
+        }
+        .modern-badge {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            padding: 10px 20px;
+            border-radius: 24px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .modern-badge span { color: #38bdf8; font-weight: 800; }
+        #pearl-count span { color: #fbbf24; }
+
+        .btn-fullscreen {
+            background: linear-gradient(135deg, #38bdf8, #0284c7);
+            border: 1.5px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            pointer-events: auto;
+            font-weight: 700;
+            transition: transform 0.2s;
+        }
+        .btn-fullscreen:active { transform: scale(0.95); }
+
+        /* Menu de Início */
+        #main-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            background: radial-gradient(circle at center, rgba(15, 32, 67, 0.9) 0%, rgba(2, 6, 23, 0.98) 100%);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: all 0.5s ease;
+        }
+        .menu-content {
+            text-align: center;
+            max-width: 480px;
+            padding: 40px;
+            border-radius: 32px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+        }
+        .menu-content p { color: #94a3b8; font-size: 0.95rem; margin-bottom: 30px; }
+        .btn-play {
+            background: linear-gradient(135deg, #0284c7, #4f46e5);
+            color: white;
+            border: none;
+            padding: 16px 48px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+        }
+
+        /* Analógico Mobile */
+        #joystick-container {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 130px;
+            height: 130px;
+            z-index: 15;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        .joy-outer {
+            width: 120px;
+            height: 120px;
+            background: rgba(15, 23, 42, 0.45);
+            border: 2.5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            backdrop-filter: blur(8px);
+            pointer-events: auto;
+        }
+        .joy-inner {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #e2e8f0, #94a3b8);
+            border-radius: 50%;
+            position: absolute;
+            top: 32px;
+            left: 32px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+        }
+        #tip-drag {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            background: rgba(15, 23, 42, 0.6);
+            color: #94a3b8;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="main-menu">
+        <div class="menu-content">
+            <h1>Dolphin 3D<br><span style="color:#38bdf8; font-size:1.6rem;">Sensibilidade Alta</span></h1>
+            <p>A velocidade da câmera foi duplicada para melhorar os giros. Hospede o código fora de iframes para liberar o botão de deitar a tela!</p>
+            <button class="btn-play" id="btn-start">JOGAR</button>
+        </div>
+    </div>
+
+    <div class="game-overlay" id="hud">
+        <div class="top-bar">
+            <div class="modern-badge">PROFUNDIDADE: <span id="lbl-depth">0m</span></div>
+            <button class="modern-badge btn-fullscreen" id="btn-fs">TELA DEITADA 📺</button>
+            <div class="modern-badge" id="pearl-count">PÉROLAS: <span id="lbl-pearls">0</span></div>
+        </div>
+        <div id="tip-drag">Sensibilidade da câmera aumentada! 🔄📱</div>
+    </div>
+
+    <div id="joystick-container">
+        <div class="joy-outer" id="joy-base">
+            <div class="joy-inner" id="joy-handle"></div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('canvas-container');
+        const mainMenu = document.getElementById('main-menu');
+        const hudOverlay = document.getElementById('hud');
+        const joyContainer = document.getElementById('joystick-container');
+        const lblDepth = document.getElementById('lbl-depth');
+        const lblPearls = document.getElementById('lbl-pearls');
+        const btnStart = document.getElementById('btn-start');
+        const btnFs = document.getElementById('btn-fs');
+
+        let isPlaying = false;
+        let scorePearls = 0;
+
+        // CONFIGURAÇÃO THREE.JS
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x01132b);
+        scene.fog = new THREE.FogExp2(0x01132b, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        // ILUMINAÇÃO
+        const ambientLight = new THREE.AmbientLight(0x0c3a66, 1.7);
+        scene.add(ambientLight);
+        const sunLight = new THREE.DirectionalLight(0x40c4ff, 2.5);
+        sunLight.position.set(20, 80, 20);
+        scene.add(sunLight);
+
+        // MODELAGEM GOLFINHO
+        const dolphin = new THREE.Group();
+        const dolphinBodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.1, metalness: 0.2, flatShading: true });
+        const dolphinBellyMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2, flatShading: true });
+        const blackMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+
+        const upperBodyGeo = new THREE.SphereGeometry(1.3, 16, 16); upperBodyGeo.scale(1, 0.75, 3.2);
+        const upperBody = new THREE.Mesh(upperBodyGeo, dolphinBodyMat); dolphin.add(upperBody);
+
+        const bellyGeo = new THREE.SphereGeometry(1.2, 14, 14); bellyGeo.scale(0.9, 0.3, 2.6);
+        const belly = new THREE.Mesh(bellyGeo, dolphinBellyMat); belly.position.set(0, -0.45, -0.2); dolphin.add(belly);
+
+        const beakGeo = new THREE.ConeGeometry(0.32, 1.4, 12); beakGeo.rotateX(-Math.PI / 2);
+        const beak = new THREE.Mesh(beakGeo, dolphinBodyMat); beak.position.set(0, -0.15, -3.8); dolphin.add(beak);
+
+        const dorsalFinGeo = new THREE.ConeGeometry(0.28, 1.3, 5); dorsalFinGeo.rotateX(Math.PI / 2.6);
+        const dorsalMesh = new THREE.Mesh(dorsalFinGeo, dolphinBodyMat); dorsalMesh.position.set(0, 1.1, 0.3); dolphin.add(dorsalMesh);
+
+        const pectoralFinGeo = new THREE.BoxGeometry(1.5, 0.06, 0.7);
+        const pectoralLeft = new THREE.Mesh(pectoralFinGeo, dolphinBodyMat); pectoralLeft.position.set(-1.3, -0.3, -0.5); pectoralLeft.rotation.set(0.1, -0.2, -0.5);
+        const pectoralRight = pectoralLeft.clone(); pectoralRight.position.x = 1.3; pectoralRight.rotation.set(0.1, 0.2, 0.5); dolphin.add(pectoralLeft, pectoralRight);
+
+        const eyeGeo = new THREE.SphereGeometry(0.1, 8, 8);
+        const pupilL = new THREE.Mesh(eyeGeo, blackMat); pupilL.position.set(-0.55, 0.3, -2.4); const pupilR = pupilL.clone(); pupilR.position.x = 0.55; dolphin.add(pupilL, pupilR);
+
+        const tailSection = new THREE.Group(); tailSection.position.set(0, 0, 2.8);
+        const tailFinPlatterGeo = new THREE.BoxGeometry(2.5, 0.05, 0.9); tailFinPlatterGeo.scale(1, 1, 0.8);
+        const tailFinPlatter = new THREE.Mesh(tailFinPlatterGeo, dolphinBodyMat); tailFinPlatter.position.set(0, 0, 1.0); tailSection.add(tailFinPlatter);
+        dolphin.add(tailSection); scene.add(dolphin); dolphin.position.set(0, -6, 0);
+
+        // PEIXES ECOSSISTEMA
+        const fishes = [];
+        const fishColors = [0xef4444, 0xf59e0b, 0x10b981, 0x06b6d4, 0xec4899];
+        const fishBodyGeo = new THREE.SphereGeometry(0.5, 12, 12); fishBodyGeo.scale(0.24, 0.9, 1.7);
+        const fishTailFinGeo = new THREE.ConeGeometry(0.15, 0.8, 4); fishTailFinGeo.rotateX(Math.PI / 2);
+
+        for(let i = 0; i < 75; i++) {
+            const fGroup = new THREE.Group();
+            const fMat = new THREE.MeshStandardMaterial({ color: fishColors[Math.floor(Math.random() * fishColors.length)], flatShading: true });
+            fGroup.add(new THREE.Mesh(fishBodyGeo, fMat));
+            const t = new THREE.Mesh(fishTailFinGeo, fMat); t.position.set(0,0,1); t.scale.set(1,2.5,1); fGroup.add(t);
+            fGroup.position.set((Math.random()-0.5)*200, (Math.random()-0.5)*50-20, (Math.random()-0.5)*200);
+            fGroup.userData = { speed: 0.08 + Math.random()*0.12, wiggleFreq: 12+Math.random()*6, offset: Math.random()*100 };
+            scene.add(fGroup); fishes.push(fGroup);
+        }
+
+        // PÉROLAS
+        const pearls = [];
+        for(let i=0; i<20; i++) {
+            const pGroup = new THREE.Group();
+            pGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xe0f2fe, emissiveIntensity: 0.3 })));
+            pGroup.position.set((Math.random()-0.5)*160, (Math.random()-0.5)*45-20, (Math.random()-0.5)*160);
+            scene.add(pGroup); pearls.push(pGroup);
+        }
+
+        // RELEVO E BOLHAS
+        const terrainGeo = new THREE.PlaneGeometry(400, 400, 20, 20); terrainGeo.rotateX(-Math.PI / 2);
+        const v = terrainGeo.attributes.position;
+        for(let i=0; i<v.count; i++) { v.setY(i, Math.sin(v.getX(i)*0.04)*Math.cos(v.getZ(i)*0.04)*6 - 55); }
+        terrainGeo.computeVertexNormals();
+        scene.add(new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({ color: 0x071e3d, roughness: 0.9, flatShading: true })));
+
+        const bubbleGeo = new THREE.BufferGeometry(); const bPositions = new Float32Array(400 * 3);
+        for(let i=0; i<400*3; i+=3) { bPositions[i]=(Math.random()-0.5)*200; bPositions[i+1]=(Math.random()-0.5)*60-20; bPositions[i+2]=(Math.random()-0.5)*200; }
+        bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bPositions, 3));
+        scene.add(new THREE.Points(bubbleGeo, new THREE.PointsMaterial({ size: 0.3, color: 0x38bdf8, transparent: true, opacity: 0.4 })));
+
+        // CONFIGURAÇÕES DE SENSIBILIDADE DA CÂMERA (Aumentadas de 0.007 para 0.016)
+        let camRadius = 15;
+        let camTheta = 0;
+        let camPhi = Math.PI / 2.2;
+        const mouseSensitivity = 0.015;  // Sensibilidade no PC
+        const touchSensitivity = 0.019;  // Sensibilidade no Celular
+
+        const joyBase = document.getElementById('joy-base');
+        const joyHandle = document.getElementById('joy-handle');
+        let axisX = 0, axisY = 0;
+
+        let joystickTouchId = null;
+        let cameraTouchId = null;
+        let lastTouchX = 0, lastTouchY = 0;
+        let isRightMouseDown = false;
+
+        // SISTEMA DE TELA CHEIA
+        btnFs.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(() => console.log("Ative a rotação automática do celular."));
+                    }
+                }).catch(err => console.log(err));
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        // Mouse PC (Sensibilidade Aplicada)
+        window.addEventListener('contextmenu', e => e.preventDefault());
+        window.addEventListener('mousedown', (e) => {
+            if (e.button === 2 || !isPlaying) { isRightMouseDown = true; lastTouchX = e.clientX; lastTouchY = e.clientY; }
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isRightMouseDown) {
+                camTheta -= (e.clientX - lastTouchX) * mouseSensitivity;
+                camPhi = Math.max(0.15, Math.min(Math.PI - 0.15, camPhi - (e.clientY - lastTouchY) * mouseSensitivity));
+                lastTouchX = e.clientX; lastTouchY = e.clientY;
+            }
+        });
+        window.addEventListener('mouseup', (e) => { if (e.button === 2 || !isPlaying) isRightMouseDown = false; });
+
+        // MULTI-TOUCH MOBILE (Sensibilidade Aplicada)
+        window.addEventListener('touchstart', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const joyRect = joyBase.getBoundingClientRect();
+                const distToJoy = Math.sqrt(Math.pow(touch.clientX - (joyRect.left + joyRect.width/2), 2) + Math.pow(touch.clientY - (joyRect.top + joyRect.height/2), 2));
+                
+                if (distToJoy < joyRect.width / 1.1 && joystickTouchId === null) {
+                    joystickTouchId = touch.identifier;
+                    updateJoystick(touch.clientX, touch.clientY);
+                } else if (cameraTouchId === null) {
+                    cameraTouchId = touch.identifier;
+                    lastTouchX = touch.clientX;
+                    lastTouchY = touch.clientY;
+                }
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                if (touch.identifier === joystickTouchId) {
+                    updateJoystick(touch.clientX, touch.clientY);
+                } else if (touch.identifier === cameraTouchId) {
+                    camTheta -= (touch.clientX - lastTouchX) * touchSensitivity;
+                    camPhi = Math.max(0.15, Math.min(Math.PI - 0.15, camPhi - (touch.clientY - lastTouchY) * touchSensitivity));
+                    lastTouchX = touch.clientX; lastTouchY = touch.clientY;
+                }
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (touch.identifier === joystickTouchId) {
+                    joystickTouchId = null;
+                    joyHandle.style.transform = 'translate(0px, 0px)';
+                    axisX = 0; axisY = 0;
+                } else if (touch.identifier === cameraTouchId) {
+                    cameraTouchId = null;
+                }
+            }
+        });
+
+        function updateJoystick(clientX, clientY) {
+            const rect = joyBase.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            let dx = clientX - cx, dy = clientY - cy;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const limit = 42;
+
+            if (dist > limit) { dx = (dx / dist) * limit; dy = (dy / dist) * limit; }
+            joyHandle.style.transform = `translate(${dx}px, ${dy}px)`;
+            axisX = dx / limit; axisY = dy / limit;
+        }
+
+        let mouseJoyActive = false;
+        joyHandle.addEventListener('mousedown', (e) => { mouseJoyActive = true; e.stopPropagation(); });
+        window.addEventListener('mousemove', (e) => { if(mouseJoyActive) updateJoystick(e.clientX, e.clientY); });
+        window.addEventListener('mouseup', () => { if(mouseJoyActive) { mouseJoyActive = false; joyHandle.style.transform = 'translate(0px, 0px)'; axisX = 0; axisY = 0; } });
+
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+        
+        btnStart.addEventListener('click', () => {
+            mainMenu.style.opacity = '0'; mainMenu.style.pointerEvents = 'none';
+            hudOverlay.style.opacity = '1'; joyContainer.style.opacity = '1';
+            isPlaying = true;
+        });
+
+        // GAME LOOP
+        const clock = new THREE.Clock();
+        function loop() {
+            requestAnimationFrame(loop);
+            const delta = clock.getDelta(); const time = clock.getElapsedTime();
+
+            if (isPlaying) {
+                if (Math.abs(axisX) > 0.05 || Math.abs(axisY) > 0.05) {
+                    const forward = new THREE.Vector3(Math.sin(camTheta), 0, Math.cos(camTheta)).normalize();
+                    const right = new THREE.Vector3(Math.sin(camTheta - Math.PI/2), 0, Math.cos(camTheta - Math.PI/2)).normalize();
+                    const dir = new THREE.Vector3().addScaledVector(forward, -axisY).addScaledVector(right, axisX);
+                    
+                    let targetAngle = Math.atan2(dir.x, dir.z) + Math.PI;
+                    let diff = targetAngle - dolphin.rotation.y;
+                    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+                    dolphin.rotation.y += diff * 0.14;
+
+                    dolphin.position.addScaledVector(dir, 9.5 * delta);
+                    dolphin.rotation.x += (-axisY * 0.35 - dolphin.rotation.x) * 0.1;
+                    dolphin.position.y += (-axisY * Math.cos(camPhi)) * 10 * delta;
+
+                    tailSection.rotation.y = Math.sin(time * 16) * 0.4;
+                } else {
+                    tailSection.rotation.y = Math.sin(time * 3.5) * 0.08;
+                    dolphin.rotation.x += (0 - dolphin.rotation.x) * 0.1;
+                }
+
+                if(dolphin.position.y > 1.5) dolphin.position.y = 1.5;
+                if(dolphin.position.y < -50) dolphin.position.y = -50;
+
+                // COLISÃO PÉROLAS
+                pearls.forEach(p => {
+                    p.rotation.y = time;
+                    if(dolphin.position.distanceTo(p.position) < 2.5) {
+                        scorePearls++; lblPearls.innerText = scorePearls;
+                        p.position.set(dolphin.position.x + (Math.random()-0.5)*120, (Math.random()-0.5)*40-20, dolphin.position.z + (Math.random()-0.5)*120);
+                    }
+                });
+
+                // IA PEIXES
+                fishes.forEach(f => {
+                    f.userData.offset += delta * f.userData.wiggleFreq;
+                    if(f.position.distanceTo(dolphin.position) < 12) {
+                        let escape = new THREE.Vector3().subVectors(f.position, dolphin.position).normalize();
+                        f.position.addScaledVector(escape, f.userData.speed * 2.5);
+                        f.rotation.y += (Math.atan2(escape.x, escape.z) - f.rotation.y) * 0.15;
+                    } else {
+                        f.translateZ(-f.userData.speed);
+                        f.rotation.y += Math.sin(time*0.5 + f.userData.offset*0.02) * 0.01;
+                    }
+                    f.children[1].rotation.y = Math.sin(f.userData.offset) * 0.4;
+
+                    if(f.position.distanceTo(dolphin.position) > 100) {
+                        f.position.set(dolphin.position.x + (Math.random()-0.5)*100, dolphin.position.y + (Math.random()-0.5)*35-5, dolphin.position.z + (Math.random()-0.5)*100);
+                    }
+                });
+
+                lblDepth.innerText = `${Math.max(0, Math.floor(Math.abs(dolphin.position.y)))}m`;
+            }
+
+            // CAM ORBITAL
+            const cx = dolphin.position.x + camRadius * Math.sin(camTheta) * Math.sin(camPhi);
+            const cy = dolphin.position.y + camRadius * Math.cos(camPhi);
+            const cz = dolphin.position.z + camRadius * Math.cos(camTheta) * Math.sin(camPhi);
+
+            camera.position.x += (cx - camera.position.x) * 0.08;
+            camera.position.y += (cy - camera.position.y) * 0.08;
+            camera.position.z += (cz - camera.position.z) * 0.08;
+            camera.lookAt(dolphin.position.clone().add(new THREE.Vector3(0,0.2,0)));
+
+            renderer.render(scene, camera);
+        }
+        loop();
+    </script>
+</body>
+</html>
+
